@@ -1,0 +1,143 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+local player = Players.LocalPlayer
+
+-- VARIABLES
+local lockTarget = nil
+local active = false
+
+-- GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "r0zjLockGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+
+local Panel = Instance.new("Frame", ScreenGui)
+Panel.Size = UDim2.new(0, 100, 0, 60)
+Panel.Position = UDim2.new(0.85, 0, 0.4, 0)
+Panel.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Panel.BorderColor3 = Color3.fromRGB(0, 255, 0)
+Panel.Active = true
+Panel.Draggable = true
+
+-- Retro Title
+local Title = Instance.new("TextLabel", Panel)
+Title.Size = UDim2.new(1, 0, 0, 18)
+Title.Text = "r0zj lock"
+Title.Font = Enum.Font.Code
+Title.TextColor3 = Color3.fromRGB(0, 255, 0)
+Title.BackgroundTransparency = 1
+Title.TextScaled = true
+
+-- Buttons
+local LockOnBtn = Instance.new("TextButton", Panel)
+LockOnBtn.Size = UDim2.new(1, -10, 0, 18)
+LockOnBtn.Position = UDim2.new(0, 5, 0, 20)
+LockOnBtn.Text = "Lock On"
+LockOnBtn.Font = Enum.Font.Code
+LockOnBtn.TextColor3 = Color3.fromRGB(0, 255, 0)
+LockOnBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+LockOnBtn.BorderColor3 = Color3.fromRGB(0, 255, 0)
+
+local LockOffBtn = Instance.new("TextButton", Panel)
+LockOffBtn.Size = UDim2.new(1, -10, 0, 18)
+LockOffBtn.Position = UDim2.new(0, 5, 0, 40)
+LockOffBtn.Text = "Lock Off"
+LockOffBtn.Font = Enum.Font.Code
+LockOffBtn.TextColor3 = Color3.fromRGB(255, 0, 0)
+LockOffBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+LockOffBtn.BorderColor3 = Color3.fromRGB(255, 0, 0)
+
+-- Popup
+local function showPopup(msg)
+    local popup = Instance.new("TextLabel")
+    popup.Size = UDim2.new(0, 300, 0, 40)
+    popup.Position = UDim2.new(0.5, -150, 0.1, 0)
+    popup.BackgroundTransparency = 1
+    popup.Text = msg
+    popup.Font = Enum.Font.Code
+    popup.TextScaled = true
+    popup.TextColor3 = Color3.fromRGB(0,255,0)
+    popup.Parent = ScreenGui
+
+    task.spawn(function()
+        for i = 0,1,0.05 do
+            popup.TextTransparency = i
+            task.wait(0.1)
+        end
+        popup:Destroy()
+    end)
+end
+
+-- Helpers
+local function isAlive(plr)
+    if not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    return hum and hum.Health > 0
+end
+
+local function getClosestPlayer(exclude)
+    local closest, dist = nil, math.huge
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and isAlive(plr) and plr.Character and plr.Character:FindFirstChild("Head") then
+            local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local d = (root.Position - targetRoot.Position).Magnitude
+                if d < dist and plr ~= exclude then
+                    closest, dist = plr, d
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- Lock/Unlock
+local function setTarget(target)
+    if not target then return end
+    lockTarget = target
+    active = true
+    showPopup("Locked on " .. target.DisplayName)
+end
+
+LockOnBtn.MouseButton1Click:Connect(function()
+    local newTarget = getClosestPlayer(lockTarget)
+    if newTarget then
+        setTarget(newTarget)
+    end
+end)
+
+LockOffBtn.MouseButton1Click:Connect(function()
+    active = false
+    lockTarget = nil
+end)
+
+-- Camera follow head
+RunService.RenderStepped:Connect(function()
+    if active and lockTarget and isAlive(lockTarget) and lockTarget.Character then
+        local head = lockTarget.Character:FindFirstChild("Head")
+        if head then
+            local camPos = Camera.CFrame.Position
+            Camera.CFrame = CFrame.new(camPos, head.Position)
+        end
+    elseif active and (not lockTarget or not isAlive(lockTarget)) then
+        active = false
+        lockTarget = nil
+    end
+end)
+
+-- Title animation
+task.spawn(function()
+    local t = 0
+    while true do
+        t += RunService.RenderStepped:Wait()
+        Title.Position = UDim2.new(0,0,0, math.sin(t*2)*2)
+        Title.TextTransparency = (math.sin(t*4)*0.2)+0.2
+    end
+end)
